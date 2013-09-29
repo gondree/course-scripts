@@ -1,0 +1,217 @@
+diff -rupN vmhgfs-only/dentry.c vmhgfs-only-patched/dentry.c
+--- vmhgfs-only/dentry.c	2012-10-31 19:02:16.000000000 -0700
++++ vmhgfs-only-patched/dentry.c	2013-09-29 12:37:55.997908612 -0700
+@@ -36,7 +36,11 @@
+ 
+ /* HGFS dentry operations. */
+ static int HgfsDentryRevalidate(struct dentry *dentry,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++                                unsigned int flags);
++#else
+                                 struct nameidata *nd);
++#endif
+ 
+ /* HGFS dentry operations structure. */
+ struct dentry_operations HgfsDentryOperations = {
+@@ -71,7 +75,11 @@ struct dentry_operations HgfsDentryOpera
+ 
+ static int
+ HgfsDentryRevalidate(struct dentry *dentry,  // IN: Dentry to revalidate
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++                     unsigned int flags)
++#else
+                      struct nameidata *nd)   // IN: Lookup flags & intent
++#endif
+ {
+    int error;
+    LOG(6, (KERN_DEBUG "VMware hgfs: HgfsDentryRevalidate: calling "
+@@ -80,7 +88,11 @@ HgfsDentryRevalidate(struct dentry *dent
+    ASSERT(dentry);
+ 
+ #if defined(LOOKUP_RCU) /* Introduced in 2.6.38 */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++   if (flags & LOOKUP_RCU) {
++#else
+    if (nd && (nd->flags & LOOKUP_RCU)) {
++#endif
+       return -ECHILD;
+    }
+ #endif
+diff -rupN vmhgfs-only/inode.c vmhgfs-only-patched/inode.c
+--- vmhgfs-only/inode.c	2012-10-31 19:02:16.000000000 -0700
++++ vmhgfs-only-patched/inode.c	2013-09-29 13:40:27.729955225 -0700
+@@ -61,7 +61,7 @@ static int HgfsPackSetattrRequest(struct
+                                   HgfsReq *req,
+                                   Bool *changed);
+ static int HgfsPackCreateDirRequest(struct dentry *dentry,
+-                                    int mode,
++                                    compat_umode_t mode,
+ 				    HgfsOp opUsed,
+                                     HgfsReq *req);
+ static int HgfsTruncatePages(struct inode *inode,
+@@ -74,14 +74,22 @@ static int HgfsPackSymlinkCreateRequest(
+ /* HGFS inode operations. */
+ static int HgfsCreate(struct inode *dir,
+                       struct dentry *dentry,
+-                      int mode,
++                      compat_umode_t mode,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++                      bool excl);
++#else
+                       struct nameidata *nd);
++#endif
+ static struct dentry *HgfsLookup(struct inode *dir,
+                                  struct dentry *dentry,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++                                 unsigned int flags);
++#else
+                                  struct nameidata *nd);
++#endif
+ static int HgfsMkdir(struct inode *dir,
+                      struct dentry *dentry,
+-                     int mode);
++                     compat_umode_t mode);
+ static int HgfsRmdir(struct inode *dir,
+                      struct dentry *dentry);
+ static int HgfsUnlink(struct inode *dir,
+@@ -729,7 +737,7 @@ HgfsPackSetattrRequest(struct iattr *iat
+ 
+ static int
+ HgfsPackCreateDirRequest(struct dentry *dentry, // IN: Directory to create
+-                         int mode,              // IN: Mode to assign dir
++                         compat_umode_t mode,              // IN: Mode to assign dir
+                          HgfsOp opUsed,         // IN: Op to be used.
+                          HgfsReq *req)          // IN/OUT: Packet to write into
+ {
+@@ -951,8 +959,12 @@ HgfsTruncatePages(struct inode *inode, /
+ static int
+ HgfsCreate(struct inode *dir,     // IN: Parent dir to create in
+            struct dentry *dentry, // IN: Dentry containing name to create
+-           int mode,              // IN: Mode of file to be created
++           compat_umode_t mode,              // IN: Mode of file to be created
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++           bool excl)
++#else
+ 	   struct nameidata *nd)  // IN: Intent, vfsmount, ...
++#endif
+ {
+    HgfsAttrInfo attr;
+    int result;
+@@ -1025,7 +1037,11 @@ HgfsCreate(struct inode *dir,     // IN:
+ static struct dentry *
+ HgfsLookup(struct inode *dir,      // IN: Inode of parent directory
+            struct dentry *dentry,  // IN: Dentry containing name to look up
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++           unsigned int flags)
++#else
+            struct nameidata *nd)   // IN: Intent, vfsmount, ...
++#endif
+ {
+    HgfsAttrInfo attr;
+    struct inode *inode;
+@@ -1107,7 +1123,7 @@ error:
+ static int
+ HgfsMkdir(struct inode *dir,     // IN: Inode of parent directory
+           struct dentry *dentry, // IN: Dentry with name to be created
+-          int mode)              // IN: Mode of dir to be created
++          compat_umode_t mode)              // IN: Mode of dir to be created
+ {
+    HgfsReq *req;
+    HgfsStatus replyStatus;
+@@ -1801,7 +1817,11 @@ HgfsPermission(struct inode *inode,
+ #else
+    if (mask & MAY_ACCESS) { /* For sys_access. */
+ #endif
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++     struct hlist_node *p;
++#else
+       struct list_head *pos;
++#endif
+       int dcount = 0;
+       struct dentry *dentry = NULL;
+ 
+@@ -1817,8 +1837,12 @@ HgfsPermission(struct inode *inode,
+ #endif
+ 
+       /* Find a dentry with valid d_count. Refer bug 587789. */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++      hlist_for_each_entry(dentry, p, &inode->i_dentry, d_alias) {
++#else
+       list_for_each(pos, &inode->i_dentry) {
+          dentry = list_entry(pos, struct dentry, d_alias);
++#endif
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 38)
+          dcount = atomic_read(&dentry->d_count);
+ #else
+diff -rupN vmhgfs-only/page.c vmhgfs-only-patched/page.c
+--- vmhgfs-only/page.c	2012-10-31 19:02:16.000000000 -0700
++++ vmhgfs-only-patched/page.c	2013-09-29 12:31:29.553903811 -0700
+@@ -893,7 +893,11 @@ HgfsDoWriteBegin(struct page *page,
+     */
+    if ((offset >= currentFileSize) ||
+        ((pageFrom == 0) && (offset + pageTo) >= currentFileSize)) {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++     void *kaddr = kmap_atomic(page);
++#else
+       void *kaddr = kmap_atomic(page, KM_USER0);
++#endif
+ 
+       if (pageFrom) {
+          memset(kaddr, 0, pageFrom);
+@@ -901,7 +905,11 @@ HgfsDoWriteBegin(struct page *page,
+       if (pageTo < PAGE_CACHE_SIZE) {
+          memset(kaddr + pageTo, 0, PAGE_CACHE_SIZE - pageTo);
+       }
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++      kunmap_atomic(kaddr);
++#else
+       kunmap_atomic(kaddr, KM_USER0);
++#endif
+       flush_dcache_page(page);
+    }
+ }
+diff -rupN vmhgfs-only/shared/compat_fs.h vmhgfs-only-patched/shared/compat_fs.h
+--- vmhgfs-only/shared/compat_fs.h	2012-10-31 19:03:06.000000000 -0700
++++ vmhgfs-only-patched/shared/compat_fs.h	2013-09-29 12:50:46.725918188 -0700
+@@ -248,6 +248,12 @@
+ #define VMW_FSYNC_OLD
+ #endif
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
++typedef umode_t compat_umode_t;
++#else
++typedef int compat_umode_t;
++#endif
++
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+ #define d_make_root(inode) ({                      \
+    struct dentry * ____res = d_alloc_root(inode);  \
+diff -rupN vmhgfs-only/shared/compat_mm.h vmhgfs-only-patched/shared/compat_mm.h
+--- vmhgfs-only/shared/compat_mm.h	2012-10-31 19:03:06.000000000 -0700
++++ vmhgfs-only-patched/shared/compat_mm.h	2013-09-29 13:43:19.037957354 -0700
+@@ -92,7 +92,7 @@ static inline struct page * alloc_pages(
+ /*
+  * In 2.4.10, vmtruncate was changed from returning void to returning int.
+  */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 4, 10)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 10)
+ #define compat_vmtruncate(inode, size)                                        \
+ ({                                                                            \
+    int result = 0;                                                            \
+@@ -100,7 +100,15 @@ static inline struct page * alloc_pages(
+    result;                                                                    \
+ })
+ #else
+-#define compat_vmtruncate(inode, size) vmtruncate(inode, size)
++#define compat_vmtruncate(inode, size)                                        \
++({                                                                            \
++   result = inode_newsize_ok(inode, size);                                    \
++   if (!result)                                                               \
++   {                                                                          \
++      truncate_setsize(inode, size);                                          \
++   }                                                                          \
++   result;                                                                    \
++})
+ #endif
+ 
+ 

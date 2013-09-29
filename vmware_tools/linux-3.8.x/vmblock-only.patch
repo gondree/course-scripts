@@ -1,0 +1,68 @@
+diff -rupN vmblock-only/linux/dentry.c vmblock-only-patched/linux/dentry.c
+--- vmblock-only/linux/dentry.c	2012-10-31 19:03:06.000000000 -0700
++++ vmblock-only-patched/linux/dentry.c	2013-09-29 11:51:48.877874232 -0700
+@@ -32,7 +32,11 @@
+ #include "block.h"
+ 
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++static int DentryOpRevalidate(struct dentry *dentry, unsigned int flags);
++#else
+ static int DentryOpRevalidate(struct dentry *dentry, struct nameidata *nd);
++#endif
+ 
+ struct dentry_operations LinkDentryOps = {
+    .d_revalidate = DentryOpRevalidate,
+@@ -60,7 +64,11 @@ struct dentry_operations LinkDentryOps =
+ 
+ static int
+ DentryOpRevalidate(struct dentry *dentry,  // IN: dentry revalidating
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++                   unsigned int flags)
++#else
+                    struct nameidata *nd)   // IN: lookup flags & intent
++#endif
+ {
+    VMBlockInodeInfo *iinfo;
+    struct nameidata actualNd;
+@@ -101,7 +109,11 @@ DentryOpRevalidate(struct dentry *dentry
+    if (actualDentry &&
+        actualDentry->d_op &&
+        actualDentry->d_op->d_revalidate) {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++      return actualDentry->d_op->d_revalidate(actualDentry, flags);
++#else
+       return actualDentry->d_op->d_revalidate(actualDentry, nd);
++#endif
+    }
+ 
+    if (compat_path_lookup(iinfo->name, 0, &actualNd)) {
+diff -rupN vmblock-only/linux/inode.c vmblock-only-patched/linux/inode.c
+--- vmblock-only/linux/inode.c	2012-10-31 19:03:06.000000000 -0700
++++ vmblock-only-patched/linux/inode.c	2013-09-29 11:54:46.589876440 -0700
+@@ -35,8 +35,13 @@
+ 
+ 
+ /* Inode operations */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++static struct dentry *InodeOpLookup(struct inode *dir,
++                                    struct dentry *dentry, unsigned int flags);
++#else
+ static struct dentry *InodeOpLookup(struct inode *dir,
+                                     struct dentry *dentry, struct nameidata *nd);
++#endif
+ static int InodeOpReadlink(struct dentry *dentry, char __user *buffer, int buflen);
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+ static void *InodeOpFollowlink(struct dentry *dentry, struct nameidata *nd);
+@@ -75,7 +80,11 @@ static struct inode_operations LinkInode
+ static struct dentry *
+ InodeOpLookup(struct inode *dir,      // IN: parent directory's inode
+               struct dentry *dentry,  // IN: dentry to lookup
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
++              unsigned int flags)
++#else
+               struct nameidata *nd)   // IN: lookup intent and information
++#endif
+ {
+    char *filename;
+    struct inode *inode;
