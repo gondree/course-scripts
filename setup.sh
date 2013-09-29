@@ -114,6 +114,7 @@ if $install_ctools ; then
     libboost-thread-dev \
     libxmu-dev \
     libxi-dev \
+    linux-headers-generic \
     exuberant-ctags \
     make \
     checkinstall \
