@@ -270,7 +270,7 @@ if $install_vmwaretools ; then
     patch38kernel=$(uname -r | grep "3.8.*")
     if [ "x"$patch38kernel != "x" ] ; then
         echo "# We are using kernel" $patch38kernel
-        echo "# Tools needs a patch for the 3.8. kernel"
+        echo "# Need to patch VMwareTools-8.8.5-893888.tar.gz for 3.8.x kernel"
         # See:  https://communities.vmware.com/thread/449128?start=0&tstart=0
         #       http://ubuntuforums.org/showthread.php?t=2136277&page=2
         #       http://ubuntuforums.org/showthread.php?t=2158769&p=12746043
