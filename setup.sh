@@ -44,6 +44,7 @@ case "$1" in
         echo "# Hey -- Welcome to Intro to Computer Security!";
         install_utils=true;
         install_python=true;
+        install_gnomeutils=true;
         install_wine=true;
         shift
         ;;
@@ -184,7 +185,8 @@ if $install_ssh; then
 fi
 
 if $config_vi; then
-    sudo apt-get -y --force-yes install vim
+    sudo apt-get -y --force-yes install \
+    vim
 
     if [ -f $HOME/.vimrc ]; then
         echo "# Ok, partner. Leaving your .vimrc file alone."
