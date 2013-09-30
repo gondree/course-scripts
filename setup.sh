@@ -4,6 +4,8 @@ prog=`basename "$0" .sh`
 progDir=`dirname "$0"`
 echo_exec="echo +"
 
+remote_url="https://raw.github.com/gondree/course-scripts/master"
+
 ##############################################################################
 #
 # Parse inputs
@@ -11,9 +13,9 @@ echo_exec="echo +"
 VERBOSE=false
 
 do_update=false
-install_ctools=false
+install_programming=false
 install_gnomeutils=false
-install_python=false
+install_python27=false
 install_utils=false
 install_wine=false
 install_ssh=true
@@ -26,24 +28,36 @@ case "$1" in
         VERBOSE=true;
         shift
         ;;
+    --all )
+        do_update=true
+        install_programming=true
+        install_gnomeutils=true
+        install_python27=true
+        install_utils=true
+        install_wine=true
+        install_ssh=true
+        install_vmwaretools=true
+        config_vi=true
+        shift
+        ;;
     --cs2140 )
         echo "# Hey -- Welcome to Low-Level Programming!";
         install_utils=true;
-        install_ctools=true;
+        install_programming=true;
         install_gnomeutils=true;
         shift
         ;;
     --cs3040 )
         echo "# Hey -- Welcome to Low-Level Programming!";
         install_utils=true;
-        install_ctools=true;
+        install_programming=true;
         install_gnomeutils=true;
         shift
         ;;
     --cs3600 )
         echo "# Hey -- Welcome to Intro to Computer Security!";
         install_utils=true;
-        install_python=true;
+        install_python27=true;
         install_gnomeutils=true;
         install_wine=true;
         shift
@@ -62,9 +76,8 @@ done
 dir="$HOME/tmp"
 rm -rf "$dir"
 mkdir "$dir"
-$echo_exec cd "$dir"
 if ! cd "$dir" ; then
-    $echo_error "Could not cd to \"$dir\"" >&2
+    echo "-> Error: could not cd to \"$dir\"" >&2
     exit 1
 fi
 
@@ -79,7 +92,7 @@ sudo ls >/dev/null
 #
 
 if $do_update ; then
-    echo "# Updating your packages..."
+    echo "# Updating apt-get & Upgrading all packages..."
     sudo apt-get -y --force-yes update
     sudo apt-get -y --force-yes upgrade
 fi
@@ -103,7 +116,7 @@ if $install_utils ; then
 fi
 
 
-if $install_ctools ; then
+if $install_programming ; then
     echo "# Installing various programming packages..."
     sudo apt-get -y --force-yes install \
     astyle \
@@ -145,7 +158,7 @@ if $install_wine ; then
 fi
 
 
-if $install_python ; then
+if $install_python27 ; then
     echo "# Installing various python packages..."
     sudo apt-get -y --force-yes install \
     python2.7 \
@@ -241,7 +254,7 @@ if $install_vmwaretools ; then
     vmtools_tar=/tmp/VMwareTools-*.tar.gz
     cd "$dir"
     tar xzf $vmtools_tar
-    if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+    if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
 
     vmtools_dir=vmware-tools-distrib
     if [ ! -d $vmtools_dir ]; then
@@ -260,7 +273,7 @@ if $install_vmwaretools ; then
          echo "#" $old_ver_h "exists already"
     elif [ -f $new_ver_h ] ; then
         sudo ln -s $new_ver_h $old_ver_h
-        if [ $? -ne 0 ] ; then echo "-> Error (ln)" && exit 1; fi
+        if [ $? -ne 0 ] ; then echo "-> Error (ln)" || exit 1; fi
     else
         echo "#" $new_ver_h "does not exist"
         echo "# so we can't link" $old_ver_h "to it"
@@ -269,10 +282,13 @@ if $install_vmwaretools ; then
     #--------------------------------------------------------------------------
     # Linux-3.8.x patch
     #
-    patch38kernel=$(uname -r | grep "3.8.*")
-    if [ "x"$patch38kernel != "x" ] ; then
-        echo "# We are using kernel" $patch38kernel
-        echo "# Need to patch VMwareTools-8.8.5-893888.tar.gz for 3.8.x kernel"
+    linux38kernel=$(uname -r | grep "3.8.*")
+    vmtools88vers=$(echo $vmtools_tar | grep "\-8.8")
+    if [ "x"$linux38kernel != "x" ] && \
+       [ "x"$vmtools88vers != "x" ] ; then
+        echo "# Using kernel" $(uname -r) "and" $vmtools88vers
+        echo "# Need to patch VMwareTools-8.8.x for 3.8.x kernel"
+
         # See:  https://communities.vmware.com/thread/449128?start=0&tstart=0
         #       http://ubuntuforums.org/showthread.php?t=2136277&page=2
         #       http://ubuntuforums.org/showthread.php?t=2158769&p=12746043
@@ -283,53 +299,48 @@ if $install_vmwaretools ; then
         vmhgfs_patch=vmhgfs-only.patch
         vmci_patch=vmci-only.patch
         vmsync_patch=vmsync-only.patch
-        remote_patches="https://raw.github.com/gondree/course-scripts/master/vmware_tools/linux-3.8.x"
+        remote_patches="$remote_url"/vmware_tools/linux-3.8.x
+
         if [ ! -f $vmblock_patch ] ; then
             wget $remote_patches/$vmblock_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
         fi
         if [ ! -f $vmhgfs_patch ] ; then
             wget $remote_patches/$vmhgfs_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
         fi
         if [ ! -f $vmci_patch ] ; then
             wget $remote_patches/$vmci_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
         fi
         if [ ! -f $vmsync_patch ] ; then
             wget $remote_patches/$vmsync_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
         fi
 
-        rm -rf vmblock-only vmhgfs-only vmci-only vmsync-only
-
-        cp $source_tarball/vmblock.tar vmblock.tar.orig
-        tar xf vmblock.tar.orig
+        tar xf $source_tarball/vmblock.tar
         patch -p0 < $vmblock_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
         tar cf $source_tarball/vmblock.tar vmblock-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
 
-        cp $source_tarball/vmhgfs.tar vmhgfs.tar.orig
-        tar xf vmhgfs.tar.orig
+        tar xf $source_tarball/vmhgfs.tar
         patch -p0 < $vmhgfs_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
         tar cf $source_tarball/vmhgfs.tar vmhgfs-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
 
-        cp $source_tarball/vmci.tar vmci.tar.orig
-        tar xf vmci.tar.orig
+        tar xf $source_tarball/vmci.tar
         patch -p0 < $vmci_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
         tar cf $source_tarball/vmci.tar vmci-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
 
-        cp $source_tarball/vmsync.tar vmsync.tar.orig
-        tar xf vmsync.tar.orig
+        tar xf $source_tarball/vmsync.tar
         patch -p0 < $vmsync_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
         tar cf $source_tarball/vmsync.tar vmsync-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
     fi
     #
     # End of special cases
@@ -337,7 +348,7 @@ if $install_vmwaretools ; then
 
     echo "# Running the VMware Tools install script"
     sudo $vmtools_dir/vmware-install.pl -d
-    if [ $? -ne 0 ]; then echo "-> Error (vmware-install.pl)" && exit 1; fi
+    if [ $? -ne 0 ]; then echo "-> Error (vmware-install.pl)" || exit 1; fi
 fi
 
 
