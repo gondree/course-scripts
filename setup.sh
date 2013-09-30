@@ -2,9 +2,7 @@
 
 prog=`basename "$0" .sh`
 progDir=`dirname "$0"`
-echo="echo $prog:"
 echo_exec="echo +"
-echo_error="echo $prog: Error:"
 
 ##############################################################################
 #
@@ -19,6 +17,7 @@ install_python=false
 install_utils=false
 install_wine=false
 install_ssh=true
+install_vmwaretools=false
 config_vi=true
 
 while true; do
@@ -48,6 +47,11 @@ case "$1" in
         install_wine=true;
         shift
         ;;
+    --vmware-tools )
+        echo "# Gotcha -- I'll try to do vmware tools.";
+        install_vmwaretools=true;
+        shift
+        ;;
     * ) break 
         ;;
     esac
@@ -55,7 +59,8 @@ done
 
 # temp folder in ~/
 dir="$HOME/tmp"
-test -d "$dir" || mkdir "$dir"
+rm -rf "$dir"
+mkdir "$dir"
 $echo_exec cd "$dir"
 if ! cd "$dir" ; then
     $echo_error "Could not cd to \"$dir\"" >&2
@@ -209,6 +214,131 @@ EOF
 fi
 
 
+if $install_vmwaretools ; then
+    echo "# Ok. Trying to install VMware tools..."
+
+    if [ ! -f /tmp/VMwareTools-*.tar.gz ] && \
+       [ ! -f /media/VMware*/VMwareTools-*.tar.gz ] ; then
+        echo "# Select 'Install VMware Tools' from the Host GUI menu."
+        echo "# Return to this screen after you have done this."
+        read -p "#  Did a cdrom mount successfully? [y/N] " yn
+        case $yn in
+            [Yy]* ) break;;
+            * ) echo "#  No? Giving up."; exit;;
+        esac
+        if [ ! -f /media/VMware*/VMwareTools-*.tar.gz ] ; then
+            echo "Still can't find tools directory. Giving Up."
+            exit 1
+        fi
+    fi
+    #
+    # Unpack tar
+    if [ ! -f /tmp/VMwareTools-*.tar.gz ] ; then
+        cp /media/VMware*/VMwareTools-*.tar.gz /tmp
+    fi
+    vmtools_tar=/tmp/VMwareTools-*.tar.gz
+    cd "$dir"
+    tar xzf $vmtools_tar
+    if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+
+    vmtools_dir=vmware-tools-distrib
+    if [ ! -d $vmtools_dir ]; then
+        echo "Can't find directory " $vmtools_dir
+        exit 1
+    fi
+    #
+    # Make sure kernel headers exist (may not be required, but is harmless)
+    sudo apt-get -y --force-yes install \
+    build-essential \
+    linux-headers-$(uname -r)
+
+    new_ver_h=/usr/src/linux-headers-$(uname -r)/include/generated/uapi/linux/version.h
+    old_ver_h=/usr/src/linux-headers-$(uname -r)/include/linux/version.h
+    if [ -f $old_ver_h ] ; then
+         echo "#" $old_ver_h "exists already"
+    elif [ -f $new_ver_h ] ; then
+        sudo ln -s $new_ver_h $old_ver_h
+        if [ $? -ne 0 ] ; then echo "-> Error (ln)" && exit 1; fi
+    else
+        echo "#" $new_ver_h "does not exist"
+        echo "# so we can't link" $old_ver_h "to it"
+    fi
+
+    #--------------------------------------------------------------------------
+    # Linux-3.8.x patch
+    #
+    patch38kernel=$(uname -r | grep "3.8.*")
+    if [ "x"$patch38kernel != "x" ] ; then
+        echo "# We are using kernel" $patch38kernel
+        echo "# Tools needs a patch for the 3.8. kernel"
+        # See:  https://communities.vmware.com/thread/449128?start=0&tstart=0
+        #       http://ubuntuforums.org/showthread.php?t=2136277&page=2
+        #       http://ubuntuforums.org/showthread.php?t=2158769&p=12746043
+        # https://communities.vmware.com/servlet/JiveServlet/download/2170394-101525/vmware_884-885-90_linux-3.6.x_patcher.sh
+
+        source_tarball=$vmtools_dir/lib/modules/source
+        vmblock_patch=vmblock-only.patch
+        vmhgfs_patch=vmhgfs-only.patch
+        vmci_patch=vmci-only.patch
+        vmsync_patch=vmsync-only.patch
+        remote_patches="https://raw.github.com/gondree/course-scripts/master/vmware_tools/linux-3.8.x"
+        if [ ! -f $vmblock_patch ] ; then
+            wget $remote_patches/$vmblock_patch
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+        fi
+        if [ ! -f $vmhgfs_patch ] ; then
+            wget $remote_patches/$vmhgfs_patch
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+        fi
+        if [ ! -f $vmci_patch ] ; then
+            wget $remote_patches/$vmci_patch
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+        fi
+        if [ ! -f $vmsync_patch ] ; then
+            wget $remote_patches/$vmsync_patch
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
+        fi
+
+        rm -rf vmblock-only vmhgfs-only vmci-only vmsync-only
+
+        cp $source_tarball/vmblock.tar vmblock.tar.orig
+        tar xf vmblock.tar.orig
+        patch -p0 < $vmblock_patch
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        tar cf $source_tarball/vmblock.tar vmblock-only
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+
+        cp $source_tarball/vmhgfs.tar vmhgfs.tar.orig
+        tar xf vmhgfs.tar.orig
+        patch -p0 < $vmhgfs_patch
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        tar cf $source_tarball/vmhgfs.tar vmhgfs-only
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+
+        cp $source_tarball/vmci.tar vmci.tar.orig
+        tar xf vmci.tar.orig
+        patch -p0 < $vmci_patch
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        tar cf $source_tarball/vmci.tar vmci-only
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+
+        cp $source_tarball/vmsync.tar vmsync.tar.orig
+        tar xf vmsync.tar.orig
+        patch -p0 < $vmsync_patch
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
+        tar cf $source_tarball/vmsync.tar vmsync-only
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
+    fi
+    #
+    # End of special cases
+    #--------------------------------------------------------------------------
+
+    echo "# Running the VMware Tools install script"
+    sudo $vmtools_dir/vmware-install.pl -d
+    if [ $? -ne 0 ]; then echo "-> Error (vmware-install.pl)" && exit 1; fi
+fi
+
+
 ##############################################################################
 #
 # Cleanup
@@ -222,8 +352,8 @@ if true ; then
     sudo apt-get -y --force-yes autoremove
 fi
 
-# temp dir
 $echo_exec rm -rf "$dir"
+rm -rf "$dir"
 
 ##############################################################################
 #
