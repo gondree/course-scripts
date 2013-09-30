@@ -40,7 +40,7 @@ case "$1" in
         config_vi=true
         shift
         ;;
-    --cs3040 | --cs2140)
+    --cs3040 | --cs2140 )
         echo "# Hey -- Welcome to Low-Level Programming!";
         install_utils=true;
         install_programming=true;
