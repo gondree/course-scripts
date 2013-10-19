@@ -97,7 +97,7 @@ fi
 if $install_latex ; then
     echo "# Installing latex..."
     sudo apt-get -y --force-yes install \
-    texlive \
+    texlive-full \
     texlive-latex-extra
 fi
 
