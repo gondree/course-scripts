@@ -13,6 +13,7 @@ remote_url="https://raw.github.com/gondree/course-scripts/master"
 VERBOSE=false
 
 do_update=false
+install_latex=false
 install_programming=false
 install_gnomeutils=false
 install_python27=false
@@ -21,6 +22,7 @@ install_wine=false
 install_ssh=true
 install_vmwaretools=false
 config_vi=true
+config_gdb=true
 
 while true; do
 case "$1" in
@@ -30,6 +32,7 @@ case "$1" in
         ;;
     --all )
         do_update=true
+        install_latex=true
         install_programming=true
         install_gnomeutils=true
         install_python27=true
@@ -90,6 +93,13 @@ if $do_update ; then
     sudo apt-get -y --force-yes upgrade
 fi
 
+
+if $install_latex ; then
+    echo "# Installing latex..."
+    sudo apt-get -y --force-yes install \
+    texlive \
+    texlive-latex-extra
+fi
 
 if $install_utils ; then
     echo "# Installing various utility packages..."
@@ -221,6 +231,22 @@ EOF
     fi
 fi
 
+if $config_gdb; then
+    if [ -f $HOME/.gdbinit ]; then
+        echo "# Ok, partner. Leaving your .gdbinit file alone."
+    else
+        echo "# Setting up sensible defaults for gdb."
+        cat > $HOME/.gdbinit << "EOF"
+set disassembly-flavor intel
+EOF
+    fi
+fi
+
+
+##############################################################################
+#
+# VMWare Tools Patches
+#
 
 if $install_vmwaretools ; then
     echo "# Ok. Trying to install VMware tools..."
