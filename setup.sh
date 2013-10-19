@@ -200,6 +200,7 @@ if $install_ssh; then
     fi
 fi
 
+
 if $config_vi; then
     sudo apt-get -y --force-yes install \
     vim
@@ -231,6 +232,7 @@ EOF
     fi
 fi
 
+
 if $config_gdb; then
     if [ -f $HOME/.gdbinit ]; then
         echo "# Ok, partner. Leaving your .gdbinit file alone."
@@ -238,6 +240,7 @@ if $config_gdb; then
         echo "# Setting up sensible defaults for gdb."
         cat > $HOME/.gdbinit << "EOF"
 set disassembly-flavor intel
+
 EOF
     fi
 fi
