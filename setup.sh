@@ -95,10 +95,18 @@ fi
 
 
 if $install_latex ; then
-    echo "# Installing latex..."
+    echo "# Using scottkosty's latex install scripts..."
+    wget https://raw.github.com/scottkosty/install-tl-ubuntu/master/debian-control-texlive-in.txt
+    wget https://raw.github.com/scottkosty/install-tl-ubuntu/master/install-tl-ubuntu
+    sudo bash install-tl-ubuntu
+
+    echo "# Installing stuff thats helpful with latex..."
     sudo apt-get -y --force-yes install \
-    texlive-full \
-    texlive-latex-extra
+    imagemagick \
+    psutils \
+    dvipng \
+    gv \
+    dvipost
 fi
 
 if $install_utils ; then
