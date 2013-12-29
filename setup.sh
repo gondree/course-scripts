@@ -5,6 +5,8 @@ progDir=`dirname "$0"`
 echo_exec="echo +"
 
 remote_url="https://raw.github.com/gondree/course-scripts/master"
+# aka: http://goo.gl/Q2gBte
+
 
 ##############################################################################
 #
@@ -17,6 +19,7 @@ install_latex=false
 install_programming=false
 install_gnomeutils=false
 install_python27=false
+install_python32=false
 install_utils=false
 install_wine=false
 install_ssh=true
@@ -31,15 +34,22 @@ case "$1" in
         shift
         ;;
     --all )
+        echo "# Installing some commonly useful default stuff.";
         do_update=true
-        install_latex=true
         install_programming=true
-        install_gnomeutils=true
         install_python27=true
         install_utils=true
-        install_wine=true
         install_ssh=true
         config_vi=true
+        shift
+        ;;
+    --latex | --LaTeX )
+        install_latex=true
+        config_vi=true
+        shift
+        ;;
+    --wine )
+        install_wine=true
         shift
         ;;
     --cs3040 | --cs2140 )
@@ -169,7 +179,7 @@ fi
 
 
 if $install_python27 ; then
-    echo "# Installing various python packages..."
+    echo "# Installing various python27 packages..."
     sudo apt-get -y --force-yes install \
     python2.7 \
     python-tk \
@@ -181,6 +191,43 @@ if $install_python27 ; then
     python-matplotlib-doc \
     python-scipy \
     libboost-python-dev
+fi
+
+
+if $install_python32 ; then
+    echo "# Installing various python32 packages..."
+
+    ubuntu1204=$(uname -v | grep "precise")
+    if [ "x"$ubuntu1204 != "x" ] ; then
+        echo "# Using Ubuntu 12.04"
+        echo "# Need to add depots to /etc/apt/sources.list"
+        sudo tee -a /etc/apt/sources.list >/dev/null <<EOF
+
+# python3 matplotlib 
+deb http://ppa.launchpad.net/takluyver/matplotlib-daily/ubuntu  precise main 
+deb-src http://ppa.launchpad.net/takluyver/matplotlib-daily/ubuntu precise main 
+deb http://ppa.launchpad.net/takluyver/python3/ubuntu precise main 
+deb-src http://ppa.launchpad.net/takluyver/python3/ubuntu precise main
+EOF
+        sudo apt-get update
+    fi
+
+    sudo apt-get -y --force-yes install \
+    python3 \
+    python3-dev \
+    ipython3 \
+    python3-numpy \
+    python3-scipy \
+    python3-sympy \
+    python3-matplotlib
+
+    echo "# Installing optional python packages..."
+    sudo apt-get -y --force-yes install \
+    ipython3-qtconsole python3-zmq python3-doc python3-tk \
+    python3-setuptools python3.2-doc binfmt-support \
+    python-numpy-doc python3-numpy-dbg python3-nose python3-dev \
+    python-matplotlib-doc python3-cairo python3-gi python3-gobject \
+    python3-pyqt4 python3-scipy python3-sip tix python3-tk-dbg
 fi
 
 
