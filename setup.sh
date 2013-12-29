@@ -39,7 +39,6 @@ case "$1" in
         install_utils=true
         install_wine=true
         install_ssh=true
-        install_vmwaretools=true
         config_vi=true
         shift
         ;;
