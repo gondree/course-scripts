@@ -18,6 +18,7 @@ do_update=false
 install_latex=false
 install_programming=false
 install_gnomeutils=false
+install_httpd=false
 install_python27=false
 install_python32=false
 install_utils=false
@@ -65,6 +66,7 @@ case "$1" in
         install_python27=true;
         install_gnomeutils=true;
         install_wine=true;
+        install_httpd=true;
         shift
         ;;
     --vmware-tools )
@@ -177,6 +179,11 @@ if $install_wine ; then
     wine
 fi
 
+if $install_httpd ; then
+    echo "# Installing some httpd tools..."
+    sudo apt-get -y --force-yes install \
+    apache2-utils
+fi
 
 if $install_python27 ; then
     echo "# Installing various python27 packages..."
