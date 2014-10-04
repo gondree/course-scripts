@@ -3,6 +3,7 @@
 prog=`basename "$0" .sh`
 progDir=`dirname "$0"`
 echo_exec="echo +"
+username=`whoami`
 
 remote_url="https://raw.github.com/gondree/course-scripts/master"
 # aka: http://goo.gl/Q2gBte
@@ -25,8 +26,8 @@ install_utils=false
 install_wine=false
 install_ssh=true
 install_vmwaretools=false
-config_vi=true
-config_gdb=true
+config_vi=false
+config_gdb=false
 
 while true; do
 case "$1" in
@@ -58,6 +59,8 @@ case "$1" in
         install_utils=true;
         install_programming=true;
         install_gnomeutils=true;
+        config_vi=true;
+        config_gdb=true;
         shift
         ;;
     --cs3600 )
@@ -65,8 +68,8 @@ case "$1" in
         install_utils=true;
         install_python27=true;
         install_gnomeutils=true;
-        install_wine=true;
         install_httpd=true;
+        config_vi=true;
         shift
         ;;
     --vmware-tools )
@@ -283,13 +286,13 @@ set smartindent
 set smarttab
 set shiftwidth=2
 set softtabstop=2
-set tabstop=2
-set expandtab
+set tabstop=4
 set nowrap                      "Don't wrap lines
 set scrolloff=3                 "Start scrolling when we're near margins
 syntax on
 
 EOF
+        chown "$username.$username" "$HOME/.vimrc"
     fi
 fi
 
@@ -316,6 +319,7 @@ if $install_vmwaretools ; then
     echo "# Ok. Trying to install VMware tools..."
 
     if [ ! -f /tmp/VMwareTools-*.tar.gz ] && \
+       [ ! -f /media/*/VMware*/VMwareTools-*.tar.gz ] && \
        [ ! -f /media/VMware*/VMwareTools-*.tar.gz ] ; then
         echo "# Select 'Install VMware Tools' from the Host GUI menu."
         echo "# Return to this screen after you have done this."
@@ -324,20 +328,24 @@ if $install_vmwaretools ; then
             [Yy]* ) break;;
             * ) echo "#  No? Giving up."; exit;;
         esac
-        if [ ! -f /media/VMware*/VMwareTools-*.tar.gz ] ; then
-            echo "Still can't find tools directory. Giving Up."
-            exit 1
-        fi
     fi
-    #
-    # Unpack tar
-    if [ ! -f /tmp/VMwareTools-*.tar.gz ] ; then
-        cp /media/VMware*/VMwareTools-*.tar.gz /tmp
+    if [ -f /media/*/VMware*/VMwareTools-*.tar.gz ] ; then
+        vmtools_src_tar=$(ls /media/*/VMware*/VMwareTools-*.tar.gz)
+        cp "$vmtools_src_tar" /tmp
+    elif [ -f /media/VMware*/VMwareTools-*.tar.gz ] ; then
+        vmtools_src_tar=$(ls /media/VMware*/VMwareTools-*.tar.gz)
+        cp "$vmtools_src_tar" /tmp
+    else
+        echo "Still can't find tools directory. Giving Up."
+        exit 1
     fi
     vmtools_tar=/tmp/VMwareTools-*.tar.gz
+    if [ ! -f $vmtools_tar ]; then echo "-> Error (cp)" && exit 1; fi
+    #
+    # Unpack tar
     cd "$dir"
     tar xzf $vmtools_tar
-    if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
+    if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
 
     vmtools_dir=vmware-tools-distrib
     if [ ! -d $vmtools_dir ]; then
@@ -356,7 +364,7 @@ if $install_vmwaretools ; then
          echo "#" $old_ver_h "exists already"
     elif [ -f $new_ver_h ] ; then
         sudo ln -s $new_ver_h $old_ver_h
-        if [ $? -ne 0 ] ; then echo "-> Error (ln)" || exit 1; fi
+        if [ $? -ne 0 ] ; then echo "-> Error (ln)" && exit 1; fi
     else
         echo "#" $new_ver_h "does not exist"
         echo "# so we can't link" $old_ver_h "to it"
@@ -386,44 +394,44 @@ if $install_vmwaretools ; then
 
         if [ ! -f $vmblock_patch ] ; then
             wget $remote_patches/$vmblock_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
         fi
         if [ ! -f $vmhgfs_patch ] ; then
             wget $remote_patches/$vmhgfs_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
         fi
         if [ ! -f $vmci_patch ] ; then
             wget $remote_patches/$vmci_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
         fi
         if [ ! -f $vmsync_patch ] ; then
             wget $remote_patches/$vmsync_patch
-            if [ $? -ne 0 ]; then echo "-> Error (wget)" || exit 1; fi
+            if [ $? -ne 0 ]; then echo "-> Error (wget)" && exit 1; fi
         fi
 
         tar xf $source_tarball/vmblock.tar
         patch -p0 < $vmblock_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
         tar cf $source_tarball/vmblock.tar vmblock-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
 
         tar xf $source_tarball/vmhgfs.tar
         patch -p0 < $vmhgfs_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
         tar cf $source_tarball/vmhgfs.tar vmhgfs-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
 
         tar xf $source_tarball/vmci.tar
         patch -p0 < $vmci_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
         tar cf $source_tarball/vmci.tar vmci-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
 
         tar xf $source_tarball/vmsync.tar
         patch -p0 < $vmsync_patch
-        if [ $? -ne 0 ]; then echo "-> Error (patch)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (patch)" && exit 1; fi
         tar cf $source_tarball/vmsync.tar vmsync-only
-        if [ $? -ne 0 ]; then echo "-> Error (tar)" || exit 1; fi
+        if [ $? -ne 0 ]; then echo "-> Error (tar)" && exit 1; fi
     fi
     #
     # End of special cases
@@ -431,7 +439,7 @@ if $install_vmwaretools ; then
 
     echo "# Running the VMware Tools install script"
     sudo $vmtools_dir/vmware-install.pl -d
-    if [ $? -ne 0 ]; then echo "-> Error (vmware-install.pl)" || exit 1; fi
+    if [ $? -ne 0 ]; then echo "-> Error (vmware-install.pl)" && exit 1; fi
 fi
 
 
