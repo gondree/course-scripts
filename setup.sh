@@ -153,12 +153,12 @@ if $install_programming ; then
     yasm \
     automake \
     libtool \
-    libglut3-dev \
     libboost-dev \
     libboost-thread-dev \
     libxmu-dev \
     libxi-dev \
     linux-headers-generic \
+    linux-headers-$(uname -r) \
     exuberant-ctags \
     make \
     checkinstall \
@@ -175,6 +175,16 @@ if $install_programming ; then
     swig
 fi
 
+if $install_programming ; then
+    echo "# Installing some more libraries..."
+    sudo apt-get -y --force-yes install \
+    libglut3-dev
+  if [ $? -ne 0 ] ; then
+    sudo apt-get -y --force-yes install \
+    freeglut3 \
+    freeglut3-dev
+  fi
+fi
 
 if $install_wine ; then
     echo "# Installing wine..."
